@@ -10,7 +10,7 @@ import httpx
 # --- Decisiones tuyas (las cambiarás en los pasos finales) -------------------
 SERVICIO = "http://llm:8088"     # dónde está el modelo
 MAX_TOKENS = 60                  # longitud máxima de la respuesta
-TIEMPO_MAX_S = 20                # cuánto espera la aplicación antes de rendirse
+TIEMPO_MAX_S = 3                # cuánto espera la aplicación antes de rendirse
 
 # --- PASO 1: la petición que manda la aplicación (ya está hecho) -------------
 def peticion(pregunta):
@@ -23,5 +23,46 @@ print("la aplicación preguntará a", SERVICIO, "con un máximo de", MAX_TOKENS,
 # --- PASO 2: preguntar y leer por qué terminó ----------------------------------
 # (pega aquí el bloque del paso 2)
 
-# --- PASO 3: un mensaje claro para cada caso -----------------------------------
-# (pega aquí el bloque del paso 3)
+def consultar(pregunta):
+    r = httpx.post(f"{SERVICIO}/v1/chat/completions", json=peticion(pregunta), timeout=TIEMPO_MAX_S)
+    r.raise_for_status()                                  # un error del servicio se convierte en excepción
+    eleccion = r.json()["choices"][0]
+    return eleccion["message"]["content"].strip(), eleccion["finish_reason"]
+
+texto, motivo = consultar("¿Qué es un PLC?")
+print(f"motivo={motivo}  respuesta={texto}")
+
+
+def responder(pregunta):
+    try:
+        texto, motivo = consultar(pregunta)
+    except httpx.ConnectError:
+        return "AVISO: el asistente no está disponible. Usa el procedimiento en papel."
+    except httpx.TimeoutException:
+        return f"AVISO: el asistente no ha respondido en {TIEMPO_MAX_S} s. Inténtalo más tarde."
+    except httpx.HTTPStatusError as error:
+        return f"AVISO: el asistente ha dado un error ({error.response.status_code})."
+    if motivo == "length":
+        return texto + "  [respuesta incompleta: pide una pregunta más concreta]"
+    return texto
+
+print("pantalla:", responder("¿Qué es un PLC?"))
+
+
+
+def responder(pregunta):
+    try:
+        texto, motivo = consultar(pregunta)
+    except httpx.ConnectError:
+        return "AVISO: el asistente no está disponible. Usa el procedimiento en papel."
+    except httpx.TimeoutException:
+        return f"AVISO: el asistente no ha respondido en {TIEMPO_MAX_S} s. Inténtalo más tarde."
+    except httpx.HTTPStatusError as error:
+        return f"AVISO: el asistente ha dado un error ({error.response.status_code})."
+    if motivo == "length":
+        return texto + "  [respuesta incompleta: pide una pregunta más concreta]"
+    return texto
+
+print("pantalla:", responder("¿Qué es un PLC?"))
+
+

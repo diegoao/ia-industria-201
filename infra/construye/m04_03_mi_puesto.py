@@ -28,9 +28,35 @@ print(f"carcasas que llegan al puesto: {len(llegan)} ({int(llegan.defecto.sum())
 
 # --- PASO 2: la probabilidad de cada carcasa -----------------------------------
 # (pega aquí el bloque del paso 2)
+def probabilidad(ruta):
+    numeros = np.asarray(Image.open(ruta).convert("L").resize((16, 16)), dtype=np.float32).reshape(1, -1) / 255.0
+    return float(modelo.predict_proba(numeros)[0, 1])
+
+llegan = llegan.assign(probabilidad=[probabilidad(r) for r in llegan["ruta"]])
+tramos = pd.cut(llegan["probabilidad"], [0, 0.2, 0.4, 0.6, 0.8, 1.0], include_lowest=True)
+print(tramos.value_counts().sort_index().to_string())
+
 
 # --- PASO 3: decidir con el umbral y la zona de duda ---------------------------
 # (pega aquí el bloque del paso 3)
+def decidir(p):
+    if abs(p - UMBRAL) < DUDA:
+        return "dudosa"                                  # la decide una persona
+    return "revisar" if p >= UMBRAL else "aceptar"
+
+llegan = llegan.assign(decision=[decidir(p) for p in llegan["probabilidad"]])
+print(dict(Counter(llegan["decision"])))
+escapan = int(((llegan["decision"] == "aceptar") & (llegan["defecto"] == 1)).sum())
+paradas = int(((llegan["decision"] == "revisar") & (llegan["defecto"] == 0)).sum())
+print(f"rayones aceptados={escapan}  buenas mandadas a revisar={paradas}")
 
 # --- PASO 4: escribir el registro ----------------------------------------------
 # (pega aquí el bloque del paso 4)
+huella = hashlib.sha256(open(RUTA_MODELO, "rb").read()).hexdigest()[:12]
+ahora = datetime.now(timezone.utc).isoformat(timespec="seconds")
+with open("/data/mi_registro.csv", "w", newline="") as f:
+    escritor = csv.writer(f)
+    escritor.writerow(["hora", "foto", "huella_modelo", "probabilidad", "decision"])
+    for _, c in llegan.iterrows():
+        escritor.writerow([ahora, c["ruta"].split("/")[-1], huella, round(c["probabilidad"], 3), c["decision"]])
+print(f"mi_registro.csv: {len(llegan)} líneas, modelo {huella}")

@@ -17,3 +17,5 @@ La temperatura de trabajo habitual del husillo está entre 58 °C y 66 °C. Por 
 ## Qué no dice este documento
 
 No hay consigna de paro de seguridad modificable desde el puesto de datos. El paro lo decide el automatismo.
+
+El husillo se lubrica cada 500 horas de trabajo con grasa G-2.
